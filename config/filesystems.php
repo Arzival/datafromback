@@ -30,6 +30,13 @@ return [
 
     'disks' => [
 
+        'vault' => [
+            'driver' => 'local',
+            'root' => storage_path('app/vault'),
+            'serve' => false,
+            'throw' => true,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
