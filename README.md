@@ -1,3 +1,61 @@
+# Datafront Back
+
+API de la bóveda de referencias de UI: recibe capturas de interfaces, las
+clasifica con un motor de IA local y expone el catálogo para el frontend
+(`datafront`).
+
+## Puesta en marcha
+
+```bash
+composer install
+cp .env.example .env && php artisan key:generate
+touch database/database.sqlite && php artisan migrate
+```
+
+Revisa en el `.env` las rutas de `VAULT_CLAUDE_BIN` y `VAULT_CODEX_BIN`: el PHP
+de Herd no hereda `/opt/homebrew/bin`, así que deben ser absolutas.
+
+Herd sirve el proyecto en `http://datafrontback.test` sin configuración extra.
+
+## El worker de la cola es obligatorio
+
+La clasificación ocurre en un trabajo en cola. **Sin worker, las referencias se
+quedan en estado `pending` para siempre y no aparece ningún error**, que es el
+fallo más confuso posible.
+
+En desarrollo basta con:
+
+```bash
+php artisan queue:work
+```
+
+En esta máquina está instalado como servicio de macOS, para que arranque solo al
+iniciar sesión:
+
+```bash
+# Ver estado / detener / arrancar
+launchctl print gui/$(id -u)/com.arzival.datafront.queue
+launchctl bootout gui/$(id -u)/com.arzival.datafront.queue
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.arzival.datafront.queue.plist
+```
+
+Su log queda en `storage/logs/queue-worker.log`.
+
+## Comandos propios
+
+| Comando | Qué hace |
+|---------|----------|
+| `php artisan vault:export` | Genera `storage/app/vault/CATALOG.md` y `catalog.json` con las rutas absolutas de las capturas |
+| `php artisan vault:vocab-gaps` | Lista los valores que la IA propuso y el vocabulario controlado rechazó |
+
+## Pruebas
+
+```bash
+php artisan test
+```
+
+---
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">
