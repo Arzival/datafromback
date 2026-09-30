@@ -66,9 +66,14 @@ class Inbox
 
             [$width, $height] = $this->dimensions($absolute);
 
+            $sidecar = $this->sidecar($absolute);
+
             $items[] = [
                 'filename' => $entry,
                 'previewUrl' => route('inbox.preview', ['filename' => $entry]),
+                // Vienen del .txt hermano que escribe el homelab.
+                'sourceUrl' => $sidecar['url'],
+                'sourceTitle' => $sidecar['title'],
                 'hash' => $parsed['hash'],
                 'capturedAt' => $parsed['capturedAt'],
                 'bytes' => (int) filesize($absolute),
@@ -107,7 +112,10 @@ class Inbox
             true,
         );
 
-        $reference = $this->images->store($upload, $sourceUrl);
+        $reference = $this->images->store(
+            $upload,
+            $sourceUrl ?? $this->sidecar($absolute)['url'],
+        );
 
         $this->rename($absolute, 'procesada');
 
@@ -212,6 +220,15 @@ class Inbox
             throw new RuntimeException('No se pudo renombrar el archivo en la bandeja.');
         }
 
+        // El .txt hermano se identifica por el nombre base completo, estado
+        // incluido: si solo se renombrara la imagen dejarían de ser pareja y el
+        // homelab no podría archivarlos juntos.
+        $sidecar = $this->sidecarPath($absolute);
+
+        if (is_file($sidecar)) {
+            @rename($sidecar, $this->sidecarPath($target));
+        }
+
         return basename($target);
     }
 
@@ -243,6 +260,43 @@ class Inbox
         $hash = hash_file('sha256', $absolute);
 
         return $hash !== false && Reference::where('hash', $hash)->exists();
+    }
+
+    /**
+     * Ruta del .txt hermano: mismo nombre base, extensión .txt.
+     *
+     * El homelab escribe ahí la URL de origen en la primera línea y el título
+     * de la página en la segunda. Es la única forma de rellenar `source_url`
+     * en lo que llega automático.
+     */
+    private function sidecarPath(string $absolute): string
+    {
+        return preg_replace('/\.[^.]+$/', '', $absolute).'.txt';
+    }
+
+    /** @return array{url: ?string, title: ?string} */
+    private function sidecar(string $absolute): array
+    {
+        $path = $this->sidecarPath($absolute);
+
+        if (! is_file($path)) {
+            return ['url' => null, 'title' => null];
+        }
+
+        $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        if ($lines === false) {
+            return ['url' => null, 'title' => null];
+        }
+
+        $url = trim($lines[0] ?? '');
+        $title = trim($lines[1] ?? '');
+
+        return [
+            // Se descarta lo que no sea una URL: el campo lo consume la UI.
+            'url' => filter_var($url, FILTER_VALIDATE_URL) !== false ? $url : null,
+            'title' => $title !== '' ? mb_substr($title, 0, 200) : null,
+        ];
     }
 
     /** @return array{0:int,1:int} */

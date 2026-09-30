@@ -170,3 +170,66 @@ it('no reimporta algo que ya no está pendiente', function () {
         'provider_id' => 'claude-cli',
     ])->assertStatus(422);
 });
+
+it('lee la url y el título del .txt hermano que escribe el homelab', function () {
+    dropInInbox('20260929-231929__4ac043981269__pendiente.png');
+    file_put_contents(
+        inboxPath().'/20260929-231929__4ac043981269__pendiente.txt',
+        "https://proyectorium.app/projects\nProyectorium — Proyectos\n",
+    );
+
+    $response = $this->getJson('/api/inbox')->assertOk();
+
+    expect($response->json('items.0.sourceUrl'))->toBe('https://proyectorium.app/projects')
+        ->and($response->json('items.0.sourceTitle'))->toBe('Proyectorium — Proyectos');
+});
+
+it('usa la url del .txt al importar sin que haya que pasarla', function () {
+    dropInInbox('20260929-231929__4ac043981269__pendiente.png');
+    file_put_contents(
+        inboxPath().'/20260929-231929__4ac043981269__pendiente.txt',
+        "https://proyectorium.app/projects\nProyectorium\n",
+    );
+
+    $this->postJson('/api/inbox/import', [
+        'filename' => '20260929-231929__4ac043981269__pendiente.png',
+        'provider_id' => 'claude-cli',
+    ])->assertCreated()
+        ->assertJsonPath('sourceUrl', 'https://proyectorium.app/projects');
+});
+
+it('renombra el .txt junto a la imagen para que sigan siendo pareja', function () {
+    dropInInbox('20260929-231930__848ac31b0635__pendiente.png');
+    file_put_contents(
+        inboxPath().'/20260929-231930__848ac31b0635__pendiente.txt',
+        "https://proyectorium.app/projects\nProyectorium\n",
+    );
+
+    $this->postJson('/api/inbox/reject', [
+        'filename' => '20260929-231930__848ac31b0635__pendiente.png',
+        'reason' => 'borrosa',
+    ])->assertOk();
+
+    expect(file_exists(inboxPath().'/20260929-231930__848ac31b0635__rechazada-borrosa.txt'))->toBeTrue()
+        ->and(file_exists(inboxPath().'/20260929-231930__848ac31b0635__pendiente.txt'))->toBeFalse();
+});
+
+it('aguanta un .txt ausente o con basura', function () {
+    dropInInbox('20260929-231931__ffee00112233__pendiente.png');
+    file_put_contents(
+        inboxPath().'/20260929-231931__ffee00112233__pendiente.txt',
+        "esto no es una url\n",
+    );
+
+    $this->getJson('/api/inbox')
+        ->assertOk()
+        ->assertJsonPath('items.0.sourceUrl', null)
+        ->assertJsonPath('items.0.sourceTitle', null);
+});
+
+it('no lista el .txt como si fuera una captura', function () {
+    dropInInbox('20260929-231929__4ac043981269__pendiente.png');
+    file_put_contents(inboxPath().'/20260929-231929__4ac043981269__pendiente.txt', "https://x.com\n");
+
+    $this->getJson('/api/inbox')->assertOk()->assertJsonCount(1, 'items');
+});
