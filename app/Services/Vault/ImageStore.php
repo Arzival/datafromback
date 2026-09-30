@@ -24,6 +24,12 @@ class ImageStore
         // lugar de duplicar el archivo y la fila.
         $existing = Reference::where('hash', $hash)->first();
         if ($existing !== null) {
+            // Si esta vez sí viene fuente y la referencia no tenía, se rellena.
+            // Nunca se pisa una que ya estuviera puesta.
+            if ($sourceUrl !== null && $existing->source_url === null) {
+                $existing->update(['source_url' => $sourceUrl]);
+            }
+
             return $existing;
         }
 

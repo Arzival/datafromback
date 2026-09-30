@@ -128,6 +128,40 @@ return [
     ],
 
     /**
+     * Bandeja de entrada: carpeta que Syncthing comparte con el homelab.
+     *
+     * Los archivos llegan como `AAAAMMDD-HHMMSS__<hash>__pendiente.png`. Solo
+     * se procesan los que están en estado `pendiente`; al decidir qué hacer con
+     * ellos se renombra el estado, y ese nombre viaja de vuelta al homelab por
+     * Syncthing. Es la única señal de que la referencia ya se trabajó, así que
+     * nunca se borran ni se les cambia la fecha o el hash.
+     */
+    'inbox' => [
+
+        'path' => env('VAULT_INBOX_PATH', env('HOME').'/Sync/datafront-inbox'),
+
+        /**
+         * Segundos que un archivo debe llevar sin cambios antes de dejar
+         * tocarlo. Syncthing escribe a un temporal y renombra al terminar,
+         * pero este margen evita leer una copia a medias.
+         */
+        'settle_seconds' => (int) env('VAULT_INBOX_SETTLE', 20),
+
+        /** Extensiones que se aceptan de la bandeja. */
+        'extensions' => ['png', 'jpg', 'jpeg', 'webp', 'avif'],
+
+        /**
+         * Motivos de rechazo. Viajan en el nombre (`__rechazada-borrosa`) para
+         * que el homelab distinga un fallo de captura, que puede reintentar, de
+         * una fuente mala, que debería dejar de visitar.
+         */
+        'reject_reasons' => [
+            'borrosa' => 'Borrosa o ilegible',
+            'irrelevante' => 'No me sirve como referencia',
+        ],
+    ],
+
+    /**
      * Motores disponibles. `bin` se resuelve contra el PATH del proceso PHP,
      * que bajo Herd no incluye /opt/homebrew/bin, de ahí las rutas absolutas.
      */
