@@ -34,10 +34,8 @@ beforeEach(function () {
     Storage::fake('vault');
     Queue::fake();
 
-    if (is_dir(inboxPath())) {
-        array_map('unlink', glob(inboxPath().'/*') ?: []);
-        rmdir(inboxPath());
-    }
+    // Recursivo: importar también crea gusto/boveda.json dentro de la bandeja.
+    exec('rm -rf '.escapeshellarg(inboxPath()));
     mkdir(inboxPath(), 0777, true);
 
     config()->set('vault.inbox.path', inboxPath());
@@ -46,10 +44,7 @@ beforeEach(function () {
     config()->set('vault.inbox.settle_seconds', 0);
 });
 
-afterEach(function () {
-    array_map('unlink', glob(inboxPath().'/*') ?: []);
-    @rmdir(inboxPath());
-});
+afterEach(fn () => exec('rm -rf '.escapeshellarg(inboxPath())));
 
 it('reporta la carpeta y los motivos de rechazo', function () {
     $this->getJson('/api/inbox')
@@ -232,4 +227,38 @@ it('no lista el .txt como si fuera una captura', function () {
     file_put_contents(inboxPath().'/20260929-231929__4ac043981269__pendiente.txt', "https://x.com\n");
 
     $this->getJson('/api/inbox')->assertOk()->assertJsonCount(1, 'items');
+});
+
+it('lee las líneas clave: valor y separa la nota del filtro de gusto', function () {
+    dropInInbox('20261017-130852__bc50cc789e60__pendiente.png');
+    file_put_contents(inboxPath().'/20261017-130852__bc50cc789e60__pendiente.txt', implode("\n", [
+        'https://www.behance.net/gallery/256074845/Luma',
+        'AI-Powered Wellness – Luma',
+        'galeria: https://www.behance.net/search/projects/dashboard%20ui',
+        'sitio: behance',
+        'autor: Mikalai Haluza',
+        'dispositivo: desktop',
+        'busqueda: dashboard ui',
+        'filtro: lo habría saltado — estilo rechazado sin aceptados (claro, ilustrado)',
+    ])."\n");
+
+    $item = $this->getJson('/api/inbox')->assertOk()->json('items.0');
+
+    expect($item['meta'])->toBe([
+        'galeria' => 'https://www.behance.net/search/projects/dashboard%20ui',
+        'sitio' => 'behance',
+        'autor' => 'Mikalai Haluza',
+        'dispositivo' => 'desktop',
+        'busqueda' => 'dashboard ui',
+    ])->and($item['filterNote'])->toBe('lo habría saltado — estilo rechazado sin aceptados (claro, ilustrado)');
+});
+
+it('entrega meta como objeto vacío cuando el .txt solo trae url y título', function () {
+    dropInInbox('20261017-130853__54187ec0630a__pendiente.png');
+    file_put_contents(inboxPath().'/20261017-130853__54187ec0630a__pendiente.txt', "https://x.com\nTítulo\n");
+
+    $response = $this->getJson('/api/inbox')->assertOk();
+
+    expect($response->getContent())->toContain('"meta":{}')
+        ->and($response->json('items.0.filterNote'))->toBeNull();
 });

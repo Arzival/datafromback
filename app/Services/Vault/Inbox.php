@@ -74,6 +74,10 @@ class Inbox
                 // Vienen del .txt hermano que escribe el homelab.
                 'sourceUrl' => $sidecar['url'],
                 'sourceTitle' => $sidecar['title'],
+                // Líneas «clave: valor» (galeria, autor, dispositivo, busqueda…).
+                'meta' => (object) $sidecar['meta'],
+                // Modo prueba del filtro de gusto: «lo habría saltado — motivo».
+                'filterNote' => $sidecar['filter'],
                 'hash' => $parsed['hash'],
                 'capturedAt' => $parsed['capturedAt'],
                 'bytes' => (int) filesize($absolute),
@@ -274,28 +278,48 @@ class Inbox
         return preg_replace('/\.[^.]+$/', '', $absolute).'.txt';
     }
 
-    /** @return array{url: ?string, title: ?string} */
+    /**
+     * Línea 1 URL, línea 2 título y, desde la 3, líneas «clave: valor». Las
+     * claves conocidas hoy son galeria, sitio, autor, dispositivo, busqueda,
+     * fuentes y seccion; `filtro` es la nota del modo prueba del filtro de
+     * gusto. Las desconocidas se conservan igual, por si el homelab añade más.
+     *
+     * @return array{url: ?string, title: ?string, meta: array<string, string>, filter: ?string}
+     */
     private function sidecar(string $absolute): array
     {
+        $empty = ['url' => null, 'title' => null, 'meta' => [], 'filter' => null];
         $path = $this->sidecarPath($absolute);
 
         if (! is_file($path)) {
-            return ['url' => null, 'title' => null];
+            return $empty;
         }
 
         $lines = @file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
         if ($lines === false) {
-            return ['url' => null, 'title' => null];
+            return $empty;
         }
 
         $url = trim($lines[0] ?? '');
         $title = trim($lines[1] ?? '');
+        $meta = [];
+
+        foreach (array_slice($lines, 2) as $line) {
+            if (preg_match('/^\s*([\p{L}_]+)\s*:\s*(.+?)\s*$/u', $line, $m) === 1) {
+                $meta[mb_strtolower($m[1])] = mb_substr($m[2], 0, 500);
+            }
+        }
+
+        $filter = $meta['filtro'] ?? null;
+        unset($meta['filtro']);
 
         return [
             // Se descarta lo que no sea una URL: el campo lo consume la UI.
             'url' => filter_var($url, FILTER_VALIDATE_URL) !== false ? $url : null,
             'title' => $title !== '' ? mb_substr($title, 0, 200) : null,
+            'meta' => $meta,
+            'filter' => $filter,
         ];
     }
 

@@ -20,6 +20,18 @@ return [
         'quality' => 82,
     ],
 
+    /**
+     * Python con Pillow, para calcular el dHash igual que el homelab. Es el
+     * del sistema: el de Homebrew no tiene Pillow instalado.
+     */
+    'python_bin' => env('VAULT_PYTHON_BIN', '/usr/bin/python3'),
+
+    /**
+     * Exportación para el filtro de gusto del homelab: etiquetas y dHash de
+     * todo lo aceptado, sin imágenes. Ruta relativa a la carpeta de la bandeja.
+     */
+    'gusto_export' => 'gusto/boveda.json',
+
     /** Segundos que se le dan a un CLI antes de darlo por colgado. */
     'classifier_timeout' => 180,
 

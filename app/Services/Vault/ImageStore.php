@@ -15,6 +15,8 @@ use RuntimeException;
  */
 class ImageStore
 {
+    public function __construct(private readonly PerceptualHash $hashes) {}
+
     public function store(UploadedFile $file, ?string $sourceUrl = null): Reference
     {
         $disk = Storage::disk(config('vault.disk'));
@@ -28,6 +30,10 @@ class ImageStore
             // Nunca se pisa una que ya estuviera puesta.
             if ($sourceUrl !== null && $existing->source_url === null) {
                 $existing->update(['source_url' => $sourceUrl]);
+            }
+
+            if ($existing->dhash === null) {
+                $existing->update(['dhash' => $this->hashes->one($existing->absolutePath())]);
             }
 
             return $existing;
@@ -46,6 +52,7 @@ class ImageStore
             'path' => $path,
             'thumb_path' => $thumbPath,
             'hash' => $hash,
+            'dhash' => $this->hashes->one($disk->path($path)),
             'mime' => $file->getMimeType() ?? 'image/png',
             'bytes' => $file->getSize(),
             'width' => $width,

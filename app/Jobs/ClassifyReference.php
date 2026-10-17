@@ -7,6 +7,7 @@ namespace App\Jobs;
 use App\Models\Reference;
 use App\Models\Tag;
 use App\Services\Vault\Classifier\ClassifierException;
+use App\Services\Vault\GustoExporter;
 use App\Services\Vault\ProviderRegistry;
 use App\Services\Vault\TaxonomyNormalizer;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -62,6 +63,7 @@ class ClassifyReference implements ShouldQueue
             ]);
 
             $this->syncTags($reference, $normalized['accepted']);
+            app(GustoExporter::class)->refresh();
         } catch (ClassifierException $e) {
             $this->markFailed($reference, $e->getMessage());
         } catch (Throwable $e) {
@@ -99,6 +101,7 @@ class ClassifyReference implements ShouldQueue
             'status' => Reference::STATUS_FAILED,
             'error' => mb_substr($message, 0, 500),
         ]);
+        app(GustoExporter::class)->refresh();
     }
 
     /** Si se agotan los reintentos, la referencia no se queda en «procesando». */

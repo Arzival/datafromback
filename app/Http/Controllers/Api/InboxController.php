@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ReferenceResource;
 use App\Jobs\ClassifyReference;
 use App\Models\Reference;
+use App\Services\Vault\GustoExporter;
 use App\Services\Vault\Inbox;
 use App\Services\Vault\ProviderRegistry;
 use Illuminate\Http\JsonResponse;
@@ -80,6 +81,7 @@ class InboxController extends Controller
         ]);
 
         ClassifyReference::dispatch($reference->id, $validated['provider_id'], $model);
+        app(GustoExporter::class)->refresh();
 
         return response()->json(
             new ReferenceResource($reference->load('tags')),

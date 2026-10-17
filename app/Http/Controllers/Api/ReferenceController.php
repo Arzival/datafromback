@@ -9,6 +9,7 @@ use App\Http\Requests\StoreReferenceRequest;
 use App\Http\Resources\ReferenceResource;
 use App\Jobs\ClassifyReference;
 use App\Models\Reference;
+use App\Services\Vault\GustoExporter;
 use App\Services\Vault\ImageStore;
 use App\Services\Vault\ProviderRegistry;
 use Illuminate\Http\JsonResponse;
@@ -19,7 +20,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ReferenceController extends Controller
 {
-    public function __construct(private readonly ImageStore $images) {}
+    public function __construct(
+        private readonly ImageStore $images,
+        private readonly GustoExporter $gusto,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -56,6 +60,7 @@ class ReferenceController extends Controller
             $request->string('provider_id')->toString(),
             $model !== '' ? $model : null,
         );
+        $this->gusto->refresh();
 
         return response()->json(
             new ReferenceResource($reference->load('tags')),
@@ -105,6 +110,7 @@ class ReferenceController extends Controller
     {
         $this->images->forget($reference);
         $reference->delete();
+        $this->gusto->refresh();
 
         return response()->noContent();
     }
