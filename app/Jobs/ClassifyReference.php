@@ -8,6 +8,7 @@ use App\Models\Reference;
 use App\Models\Tag;
 use App\Services\Vault\Classifier\ClassifierException;
 use App\Services\Vault\GustoExporter;
+use App\Services\Vault\ImageStore;
 use App\Services\Vault\ProviderRegistry;
 use App\Services\Vault\TaxonomyNormalizer;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -30,7 +31,7 @@ class ClassifyReference implements ShouldQueue
         public readonly ?string $model,
     ) {}
 
-    public function handle(ProviderRegistry $registry, TaxonomyNormalizer $normalizer): void
+    public function handle(ProviderRegistry $registry, TaxonomyNormalizer $normalizer, ImageStore $images): void
     {
         $reference = Reference::find($this->referenceId);
 
@@ -47,7 +48,7 @@ class ClassifyReference implements ShouldQueue
 
         try {
             $result = $registry->make($this->providerId)
-                ->classify($reference->absolutePath(), $this->model);
+                ->classify($images->visionPath($reference), $this->model);
 
             $normalized = $normalizer->normalize($result->tags);
 

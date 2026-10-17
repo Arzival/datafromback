@@ -15,7 +15,10 @@ use RuntimeException;
  */
 class ImageStore
 {
-    public function __construct(private readonly PerceptualHash $hashes) {}
+    public function __construct(
+        private readonly PerceptualHash $hashes,
+        private readonly ImageResizer $resizer,
+    ) {}
 
     public function store(UploadedFile $file, ?string $sourceUrl = null): Reference
     {
@@ -71,58 +74,72 @@ class ImageStore
     }
 
     /**
-     * Miniatura en WebP. Devuelve null si GD no puede con el formato: el
-     * catálogo sigue funcionando sirviendo el original.
+     * Miniatura en WebP. Devuelve null si no se pudo: el catálogo sigue
+     * funcionando sirviendo el original.
      */
     private function makeThumbnail(string $absolutePath, string $hash): ?string
     {
-        $contents = @file_get_contents($absolutePath);
-        if ($contents === false) {
-            return null;
+        $disk = Storage::disk(config('vault.disk'));
+        $relative = "thumbs/{$hash}.webp";
+        $disk->makeDirectory('thumbs');
+
+        $ok = $this->resizer->toWidth(
+            $absolutePath,
+            $disk->path($relative),
+            (int) config('vault.thumbnail.width'),
+            (int) config('vault.thumbnail.quality'),
+        );
+
+        return $ok ? $relative : null;
+    }
+
+    /**
+     * Ruta de la imagen que se le pasa a la IA: el original si cabe en los
+     * límites de visión y, si no, una copia reducida que se genera una vez y
+     * se reutiliza en las reclasificaciones.
+     */
+    public function visionPath(Reference $reference): string
+    {
+        $original = $reference->absolutePath();
+        $limits = config('vault.vision');
+
+        $fits = max((int) $reference->width, (int) $reference->height) <= $limits['max_side']
+            && (int) $reference->bytes <= $limits['max_bytes'];
+
+        if ($fits || ! is_file($original)) {
+            return $original;
         }
 
-        $source = @imagecreatefromstring($contents);
-        if ($source === false) {
-            return null;
-        }
+        $disk = Storage::disk(config('vault.disk'));
+        $relative = $this->visionRelative($reference);
 
-        try {
-            $targetWidth = (int) config('vault.thumbnail.width');
-            $width = imagesx($source);
-
-            $resized = $width > $targetWidth
-                ? imagescale($source, $targetWidth)
-                : $source;
-
-            if ($resized === false) {
-                return null;
-            }
-
-            $disk = Storage::disk(config('vault.disk'));
-            $relative = "thumbs/{$hash}.webp";
-            $disk->makeDirectory('thumbs');
-
-            $ok = imagewebp(
-                $resized,
+        if (! $disk->exists($relative)) {
+            $disk->makeDirectory('vision');
+            $made = $this->resizer->toLongSide(
+                $original,
                 $disk->path($relative),
-                (int) config('vault.thumbnail.quality'),
+                (int) $limits['max_side'],
+                (int) $limits['quality'],
             );
 
-            if ($resized !== $source) {
-                imagedestroy($resized);
+            if (! $made) {
+                return $original;
             }
-
-            return $ok ? $relative : null;
-        } finally {
-            imagedestroy($source);
         }
+
+        return $disk->path($relative);
+    }
+
+    private function visionRelative(Reference $reference): string
+    {
+        return "vision/{$reference->hash}.jpg";
     }
 
     /** Borra los archivos de una referencia. */
     public function forget(Reference $reference): void
     {
         $disk = Storage::disk(config('vault.disk'));
-        $disk->delete(array_filter([$reference->path, $reference->thumb_path]));
+        $disk->delete(array_filter([$reference->path, $reference->thumb_path, $this->visionRelative($reference)]));
     }
 
     public function assertWritable(): void

@@ -21,6 +21,18 @@ return [
     ],
 
     /**
+     * Copia reducida que se le pasa a la IA cuando el original es enorme (las
+     * capturas de Dribbble llegan a 7000 px y 8 MB). La API de visión no
+     * admite más de 5 MB por imagen y por encima de ~2500 px solo gasta tokens.
+     * El original se queda intacto en la bóveda.
+     */
+    'vision' => [
+        'max_side' => 2560,
+        'max_bytes' => 4_500_000,
+        'quality' => 90,
+    ],
+
+    /**
      * Python con Pillow, para calcular el dHash igual que el homelab. Es el
      * del sistema: el de Homebrew no tiene Pillow instalado.
      */
