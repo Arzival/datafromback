@@ -1,3 +1,13 @@
+# datafront · backend — notas para agentes
+
+Esto es el backend (Laravel) de **datafront**, una bóveda local de capturas de UI que clasifica la IA. El frontend vive en el repo hermano `datafront`.
+
+- **Para instalar o dejar lista la app**, sigue la sección **«Instrucciones para agentes de IA»** del `README.md`. Ahí están los pasos, cómo verificar cada uno y cuándo la tarea está terminada.
+- **Nunca borres** `storage/app/vault/` ni `database/database.sqlite`: son los datos del usuario y no hay otra copia. Nada de `migrate:fresh`, `migrate:reset` ni `db:wipe` sobre una base con datos.
+- **Sin el worker de la cola no se clasifica nada** (`./scripts/dev.sh` o `php artisan queue:work --tries=2 --timeout=300`).
+- **La API no tiene autenticación.** No la expongas fuera de `127.0.0.1`.
+- **El inicio de sesión en `claude` o `codex` lo hace el usuario.** Tú no.
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
