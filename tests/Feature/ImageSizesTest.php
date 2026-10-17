@@ -54,12 +54,14 @@ it('le pasa a la IA una copia reducida si el original es enorme', function () {
         ->and(getimagesize($reference->absolutePath())[0])->toBe(2400);
 });
 
-it('borra la copia reducida junto con la referencia', function () {
+it('borra la copia reducida al borrar para siempre', function () {
     config(['vault.vision.max_side' => 1000]);
     $reference = subir(2400, 1800);
     app(ImageStore::class)->visionPath($reference);
 
     $this->deleteJson("/api/references/{$reference->id}")->assertSuccessful();
+    expect(Storage::disk('vault')->exists("vision/{$reference->hash}.jpg"))->toBeTrue();
 
+    $this->deleteJson("/api/references/{$reference->id}/forever")->assertSuccessful();
     expect(Storage::disk('vault')->exists("vision/{$reference->hash}.jpg"))->toBeFalse();
 });

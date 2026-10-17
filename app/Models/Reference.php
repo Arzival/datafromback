@@ -7,11 +7,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 
+/**
+ * Borrar una referencia la manda a la papelera (soft delete): sale del
+ * catálogo y de la exportación de gusto, pero conserva archivos y etiquetas
+ * hasta que se borra para siempre.
+ */
 class Reference extends Model
 {
     use HasFactory;
+    use SoftDeletes;
 
     public const STATUS_PENDING = 'pending';
 

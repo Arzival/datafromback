@@ -106,11 +106,49 @@ class ReferenceController extends Controller
         return response()->json(new ReferenceResource($reference->load('tags')));
     }
 
+    /**
+     * Manda la referencia a la papelera. Los archivos no se tocan: un clic de
+     * más no puede costar una referencia.
+     */
     public function destroy(Reference $reference): Response
     {
-        $this->images->forget($reference);
         $reference->delete();
         $this->gusto->refresh();
+
+        return response()->noContent();
+    }
+
+    public function trash(): JsonResponse
+    {
+        $references = Reference::onlyTrashed()->with('tags')->latest('deleted_at')->get();
+
+        return response()->json(ReferenceResource::collection($references));
+    }
+
+    public function restore(Reference $reference): JsonResponse
+    {
+        if ($reference->trashed()) {
+            $reference->restore();
+            $this->gusto->refresh();
+        }
+
+        return response()->json(new ReferenceResource($reference->load('tags')));
+    }
+
+    /**
+     * Borrado definitivo: archivos y fila. Solo desde la papelera, para que
+     * siempre haya dos pasos entre una referencia y su pérdida.
+     */
+    public function forceDestroy(Reference $reference): Response|JsonResponse
+    {
+        if (! $reference->trashed()) {
+            return response()->json([
+                'message' => 'Solo se puede borrar para siempre lo que está en la papelera.',
+            ], Response::HTTP_CONFLICT);
+        }
+
+        $this->images->forget($reference);
+        $reference->forceDelete();
 
         return response()->noContent();
     }

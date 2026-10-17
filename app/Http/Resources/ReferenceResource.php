@@ -47,6 +47,7 @@ class ReferenceResource extends JsonResource
                     : null,
             ])->values(), []),
             'createdAt' => $this->created_at?->toIso8601String(),
+            'deletedAt' => $this->deleted_at?->toIso8601String(),
         ];
     }
 }

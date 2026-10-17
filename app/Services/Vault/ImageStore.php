@@ -27,8 +27,13 @@ class ImageStore
 
         // Misma imagen subida dos veces: se devuelve la que ya existe en
         // lugar de duplicar el archivo y la fila.
-        $existing = Reference::where('hash', $hash)->first();
+        $existing = Reference::withTrashed()->where('hash', $hash)->first();
         if ($existing !== null) {
+            // Volver a subir algo que está en la papelera lo restaura.
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+
             // Si esta vez sí viene fuente y la referencia no tenía, se rellena.
             // Nunca se pisa una que ya estuviera puesta.
             if ($sourceUrl !== null && $existing->source_url === null) {
